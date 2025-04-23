@@ -1,4 +1,4 @@
-Date,Price_A,Price_B,Spread,ZScore,Position,Quantity_A,Quantity_B,Daily_PnL,Cumulative_PnL
+date,price_a,price_b,spread,zscore,position,quantity_a,quantity_b,daily_pnl,cumulative_pnl
 2020-01-01,571.95,2167.6,-340.3690511919269,-1.507709574316687,0.0,0.0,-0.0,0.0,0.0
 2020-01-02,573.55,2157.65,-334.5812053904141,-1.330115457142266,0.0,0.0,-0.0,0.0,0.0
 2020-01-03,585.05,2200.65,-341.1794334773548,-1.53257532428479,1.0,1709.0,-191.0,-1000.0,-1000.0

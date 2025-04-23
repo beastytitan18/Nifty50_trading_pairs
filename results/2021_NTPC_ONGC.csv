@@ -1,4 +1,4 @@
-Date,Price_A,Price_B,Spread,ZScore,Position,Quantity_A,Quantity_B,Daily_PnL,Cumulative_PnL
+date,price_a,price_b,spread,zscore,position,quantity_a,quantity_b,daily_pnl,cumulative_pnl
 2021-01-01,99.05,87.45,39.804195043608175,0.6004659077729242,0.0,0.0,-0.0,0.0,0.0
 2021-01-04,99.05,91.2,37.263637369663414,-0.0490003897007879,0.0,0.0,-0.0,0.0,0.0
 2021-01-05,97.6,89.2,37.16860146243395,-0.07329529921155639,0.0,0.0,-0.0,0.0,0.0

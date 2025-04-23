@@ -1,4 +1,4 @@
-Date,Price_A,Price_B,Spread,ZScore,Position,Quantity_A,Quantity_B,Daily_PnL,Cumulative_PnL
+date,price_a,price_b,spread,zscore,position,quantity_a,quantity_b,daily_pnl,cumulative_pnl
 2022-01-03,1519.65,1922.85,573.892227299189,0.35440521613850673,0.0,0.0,-0.0,0.0,0.0
 2022-01-04,1528.55,1937.55,575.5620017180453,0.3954180388723014,0.0,0.0,-0.0,0.0,0.0
 2022-01-05,1564.85,1948.6,606.4270362301788,1.1535217532564632,0.0,0.0,-0.0,0.0,0.0

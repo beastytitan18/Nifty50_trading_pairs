@@ -29,7 +29,7 @@ def backtest_pair(
     cost_rate: float = 0.001,
     book_size: float = 1_000_000
 ) -> Dict[str, pd.Series]:
-    """Realistic backtest with proper position sizing and P&L"""
+    """Updated backtest with proper position indexing"""
     # Calculate spread and z-score
     spread = price_a - beta * price_b
     zscore = (spread - spread.mean()) / spread.std()
@@ -38,14 +38,14 @@ def backtest_pair(
     positions = calculate_positions(zscore.values, entry_z, exit_z)
     
     # Calculate dollar quantities
-    a_quantity = np.round((book_size / price_a) * positions)
-    b_quantity = np.round((-book_size * beta / price_b) * positions)
+    a_quantity = np.round((book_size / price_a.values) * positions)
+    b_quantity = np.round((-book_size * beta / price_b.values) * positions)
     
     # Calculate P&L
     pnl = np.zeros_like(positions)
     prev_position = 0
     for i in range(1, len(positions)):
-        # Price changes
+        # Use .iloc for proper positional access
         a_return = (price_a.iloc[i] - price_a.iloc[i-1]) / price_a.iloc[i-1]
         b_return = (price_b.iloc[i] - price_b.iloc[i-1]) / price_b.iloc[i-1]
         
@@ -59,6 +59,8 @@ def backtest_pair(
     
     return {
         'dates': price_a.index,
+        'price_a': price_a,
+        'price_b': price_b,
         'positions': pd.Series(positions, index=price_a.index),
         'a_quantity': pd.Series(a_quantity, index=price_a.index),
         'b_quantity': pd.Series(b_quantity, index=price_a.index),
