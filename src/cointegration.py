@@ -1,45 +1,71 @@
-
-from joblib import Parallel, delayed
-from statsmodels.tsa.stattools import adfuller
-import statsmodels.api as sm
+from statsmodels.tsa.stattools import coint
 import pandas as pd
 import numpy as np
+from typing import Optional, Dict
 
-def engle_granger_test(series_x: pd.Series, series_y: pd.Series, 
-                      significance: float = 0.05) -> dict:
-    """Enhanced Engle-Granger test with residual diagnostics."""
-    df = pd.concat([series_x, series_y], axis=1).dropna()
-    if len(df) < 100:
-        return None
+def robust_cointegration_test(
+    series_a: pd.Series,
+    series_b: pd.Series,
+    min_periods: int = 100
+) -> Optional[Dict]:
+    """Safe cointegration test with comprehensive error handling"""
+    try:
+        # Align and validate data
+        aligned = pd.concat([series_a, series_b], axis=1).dropna()
+        if len(aligned) < min_periods:
+            return None
         
-    x = sm.add_constant(df.iloc[:, 1])
-    model = sm.OLS(df.iloc[:, 0], x).fit()
-    residuals = model.resid
-    
-    # ADF test with optimized parameters
-    adf_result = adfuller(residuals, maxlag=int(12*(len(residuals)/100)**(1/4)))
-    
-    return {
-        'beta': model.params[1],
-        'alpha': model.params[0],
-        'adf_stat': adf_result[0],
-        'p_value': adf_result[1],
-        'is_cointegrated': adf_result[1] < significance,
-        'residuals': residuals
-    }
+        # Check for sufficient price variation
+        if (aligned.iloc[:,0].std() < 1e-6) or (aligned.iloc[:,1].std() < 1e-6):
+            return None
 
-def find_cointegrated_pairs(price_matrix: pd.DataFrame, 
-                           symbols: list, 
-                           n_jobs: int = -1) -> list:
-    """Parallel cointegration testing with pre-filtering."""
-    valid_symbols = [s for s in symbols if s in price_matrix.columns]
-    pairs = combinations(valid_symbols, 2)
-    
-    return Parallel(n_jobs=n_jobs)(
-        delayed(_process_pair)(price_matrix, a, b) 
-        for a, b in pairs
-    )
+        # Cointegration test with error handling
+        with np.errstate(all='raise'):
+            try:
+                score, pvalue, _ = coint(aligned.iloc[:,0], aligned.iloc[:,1])
+            except (ValueError, FloatingPointError):
+                return None
 
-def _process_pair(price_matrix, a, b):
-    result = engle_granger_test(price_matrix[a], price_matrix[b])
-    return (a, b, result) if result and result['is_cointegrated'] else None
+        # Hedge ratio calculation with validation
+        try:
+            beta = np.polyfit(aligned.iloc[:,1], aligned.iloc[:,0], 1)[0]
+            if not np.isfinite(beta):
+                return None
+        except (ValueError, FloatingPointError, np.linalg.LinAlgError):
+            return None
+
+        # Spread calculation
+        spread = aligned.iloc[:,0] - beta * aligned.iloc[:,1]
+        
+        # Half-life calculation with validation
+        try:
+            lag = spread.shift(1).dropna()
+            delta = spread[1:] - lag
+            if len(delta) < 10:  # Need sufficient samples
+                return None
+                
+            beta_hl = np.polyfit(lag, delta, 1)[0]
+            if not np.isfinite(beta_hl):
+                return None
+                
+            half_life = max(1, -np.log(2)/beta_hl) if beta_hl < 0 else np.nan
+        except (ValueError, FloatingPointError, np.linalg.LinAlgError):
+            return None
+
+        # Final validation checks
+        is_valid = (
+            pvalue < 0.05 and 
+            np.isfinite(pvalue) and
+            (5 < half_life < 60) and 
+            (0.1 < abs(beta) < 10))
+        
+        return {
+            'cointegrated': is_valid,
+            'p_value': pvalue,
+            'beta': beta,
+            'half_life': half_life,
+            'spread': spread
+        } if is_valid else None
+    except Exception as e:
+        print(f"Error testing pair {series_a.name}-{series_b.name}: {str(e)}")
+        return None
