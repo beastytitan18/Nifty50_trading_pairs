@@ -1,92 +1,76 @@
-# Nifty 50 Pairs Trading Backtest & Analytics
+# Nifty 50 Cointegration Pairs Trading Research
 
 [![Streamlit App](https://img.shields.io/badge/Live%20App-Streamlit-0099C6?logo=streamlit)](https://nifty50tradingpairs.streamlit.app/)
 
-A robust, bias-aware backtesting and analytics dashboard for pairs trading on the Nifty 50 universe (2015–2024). Explore interactive visualizations, portfolio metrics, and discover the power of systematic trading research.
+A research-grade backtesting and analytics suite for **cointegration-based pairs trading** on the Nifty 50 (2015–2024).  
+This project demonstrates robust statistical testing, realistic backtesting, and clear portfolio analytics—built for transparency and practical insight.
 
 ---
 
-## 🚀 Live Demo
+## 🔍 Core Idea
 
-👉 **[Launch the Streamlit Dashboard](https://nifty50tradingpairs.streamlit.app/)**
-
----
-
-## 📈 Project Highlights
-
-- **Yearly rebalanced universe** to avoid survivorship bias
-- **Top 5 pairs selection** per year, realistic transaction costs
-- **Portfolio-level aggregation** and performance metrics
-- **Interactive, finance-grade dashboard** (Streamlit + Plotly)
-- **Clean, modular codebase** for easy extension
+- **Cointegration**: Each year, we scan the Nifty 50 universe for stock pairs whose prices move together in the long run (using the Engle-Granger test).
+- **Pairs Trading**: For each selected pair, we trade the spread when it diverges from its mean, betting on mean reversion.
+- **Bias Avoidance**: The universe is rebalanced yearly to avoid survivorship bias.
+- **Portfolio Construction**: Top 5 cointegrated pairs per year, each traded with fixed capital and realistic costs.
 
 ---
 
-## 🧑‍💻 How to Run Locally
+## 📊 Dashboard
 
-1. **Clone the repo:**
-   ```bash
-   git clone https://github.com/beastytitan18/Nifty50_trading_pairs.git
-   cd Nifty50_trading_pairs
-   ```
+- **Pairwise PnL**: Inspect any pair’s cumulative profit and loss.
+- **Yearly Portfolio**: See all 5 pairs for a year, compare their performance interactively.
+- **Aggregated Portfolio**: Track the combined portfolio’s growth and risk.
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Launch the dashboard:**
-   ```bash
-   streamlit run prod/src/view_results.py
-   ```
+👉 [Try the live dashboard](https://nifty50tradingpairs.streamlit.app/)
 
 ---
 
-## 🏦 Methodology
+## 🧑‍💻 How to Run
 
-- **Universe:** Nifty 50, rebalanced annually (2015–2024)
-- **Pair Selection:** Statistical cointegration and spread analysis
-- **Backtesting:** Each pair traded with fixed notional, realistic costs, no lookahead
-- **Portfolio:** Top 5 pairs per year, aggregated PnL, no capital reuse
-- **Metrics:** Total/annualized return, Sharpe ratio, period
-
----
-
-## 📊 Dashboard Features
-
-- **Pairwise PnL:** Drill down into individual pair performance
-- **Yearly Portfolio:** Visualize top 5 pairs for any year, compare interactively
-- **Aggregated Portfolio:** See the big picture—portfolio growth and risk metrics
+```bash
+git clone https://github.com/beastytitan18/Nifty50_trading_pairs.git
+cd Nifty50_trading_pairs
+pip install -r requirements.txt
+streamlit run prod/src/view_results.py
+```
 
 ---
 
-## 💡 Why This Project?
+## 📚 Methodology
 
-- **Bias-aware:** Avoids common pitfalls in quant research
-- **Transparent:** All code and data handling is open and reproducible
-- **Interactive:** Results are easy to explore and communicate
-- **Production-ready:** Modular, readable, and extensible codebase
+- **Statistical Test**: Engle-Granger cointegration test for pair selection.
+- **Signal**: Z-score of spread; enter/exit on thresholds.
+- **Execution**: Fixed notional per pair, transaction costs, no lookahead.
+- **Metrics**: Total/annualized return, Sharpe, period.
 
 ---
 
-## 📚 Further Ideas
+## 🛠️ Code Structure & Naming
 
-- Add more advanced risk controls or dynamic allocation
-- Try other universes or more frequent rebalancing
-- Integrate live data for real-time analytics
+- `spread`: The price difference (or linear combination) between two stocks.
+- `positions`: The trading position (+1, -1, or 0) for each day.
+- `zscore`: Standardized spread, used for entry/exit signals.
+- `pnl`: Daily profit and loss for the pair.
+- `cumulative_pnl`: Running total of PnL.
+- `yearly_pnl.csv`: Aggregated portfolio PnL for each year.
+- `final_portfolio_pnl.csv`: Aggregated portfolio PnL for the full period.
+
+**Tip:**  
+For clarity, use explicit variable names like `spread_series`, `pair_positions`, `daily_pnl`, `cumulative_pnl`, etc.  
+Group related results in dictionaries or data classes for easier access and maintenance.
 
 ---
 
 ## 👤 Author
 
 Santhosh Venkatesan  
-[GitHub](https://github.com/beastytitan18) | [LinkedIn](https://www.linkedin.com/in/santhosh-venkatesan/)
+[GitHub](https://github.com/beastytitan18)
 
 ---
 
-> *“In research, clarity is power. In trading, discipline is edge.”*
+> *Cointegration is the backbone of robust pairs trading. This project is about doing it right—statistically, practically, and transparently.*
 
 ---
 
-**If you find this useful, please star the repo!**
-
+**Star the repo if you find it useful!**
