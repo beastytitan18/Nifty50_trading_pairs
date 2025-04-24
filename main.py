@@ -1,4 +1,12 @@
-# Find cointegrated pairs
+import os
+import pandas as pd
+from src.data_loader import load_and_validate_data, create_clean_price_matrix
+from src.pair_selection import find_robust_pairs
+from src.backtesting import backtest_pair
+from src.utils import save_pair_results, aggregate_yearly_results
+from src.visualisation import plot_yearly_results, plot_final_results
+
+
 nifty50_2015 = [
     "ACC", "AMBUJACEM", "ASIANPAINT", "AXISBANK", "BANKBARODA", "BHEL", "BPCL", "BHARTIARTL",
     "CAIRN", "CIPLA", "COALINDIA", "DLF", "DRREDDY", "GAIL", "GRASIM", "HCLTECH", "HDFC",
@@ -80,15 +88,6 @@ nifty50_2024 = [
     "UPL", "WIPRO"
 ]
 
-import os
-import pandas as pd
-from src.data_loader import load_and_validate_data, create_clean_price_matrix
-from src.pair_selection import find_robust_pairs
-from src.backtesting import backtest_pair
-from src.utils import save_pair_results, aggregate_yearly_results
-from src.visualisation import plot_yearly_results, plot_final_results
-
-# --- Nifty lists here (as in your prompt) ---
 
 def main():
     years = list(range(2015, 2025))
