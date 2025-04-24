@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from src.data_loader import load_and_validate_data, create_clean_price_matrix
-from src.pair_selection import find_robust_pairs
+from src.pair_selection import find_pairs
 from src.backtesting import backtest_pair
 from src.utils import save_pair_results, aggregate_yearly_results
 from src.visualisation import plot_yearly_results, plot_final_results
@@ -111,7 +111,7 @@ def main():
                 print(f"Skipping {year} - empty price matrix")
                 continue
 
-            pairs = find_robust_pairs(price_matrix)
+            pairs = find_pairs(price_matrix)
             print(f"Found {len(pairs)} valid pairs for {year}")
 
             if not pairs:
