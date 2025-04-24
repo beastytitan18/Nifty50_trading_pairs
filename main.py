@@ -1,18 +1,3 @@
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import pandas as pd
-from src.data_loader import load_price_data, create_price_matrix
-from src.cointegration import find_cointegrated_pairs
-from src.backtesting import backtest_pair
-from src.visualisation import plot_backtest_results
-import matplotlib.pyplot as plt
-\
-
-# Load data
-df = load_price_data("data/raw", range(2015, 2021))
-price_matrix = create_price_matrix(df)
-
 # Find cointegrated pairs
 nifty50_2015 = [
     "ACC", "AMBUJACEM", "ASIANPAINT", "AXISBANK", "BANKBARODA", "BHEL", "BPCL", "BHARTIARTL",
@@ -95,201 +80,100 @@ nifty50_2024 = [
     "UPL", "WIPRO"
 ]
 
+import os
+import pandas as pd
+from src.data_loader import load_and_validate_data, create_clean_price_matrix
+from src.pair_selection import find_robust_pairs
+from src.backtesting import backtest_pair
+from src.utils import save_pair_results, aggregate_yearly_results
+from src.visualisation import plot_yearly_results, plot_final_results
 
+# --- Nifty lists here (as in your prompt) ---
 
-# def run_analysis():
-#     os.makedirs("results", exist_ok=True)
+def main():
+    years = list(range(2015, 2025))
+    all_results = []
 
-#     # 1. Load and prepare data
-#     print("Loading in-sample data (2015-2020)...")
-#     df_in = load_price_data("data/raw", range(2015, 2021))
-#     price_matrix_in = create_price_matrix(df_in)
+    yearly_data = load_and_validate_data(years)
 
-#     print("Loading out-of-sample data (2021-2024)...")
-#     df_out = load_price_data("data/raw", range(2021, 2025))
-#     price_matrix_out = create_price_matrix(df_out)
+    for year, df in yearly_data.items():
+        print(f"\n=== Processing {year} ===")
+        try:
+            nifty_symbols = globals()[f"nifty50_{year}"]
+            valid_symbols = [s for s in nifty_symbols if s in df['symbol'].unique()]
+            print(f"{year}: {len(valid_symbols)} valid symbols")
 
-#     # 2. Filter for common symbols
-#     base_universe = nifty50_2018  # or any year you want as your universe
-#     in_cols = set(price_matrix_in.columns)
-#     out_cols = set(price_matrix_out.columns)
-#     common_symbols = [s for s in base_universe if s in in_cols and s in out_cols]
+            if len(valid_symbols) < 20:
+                print(f"Skipping {year} - insufficient symbols")
+                continue
 
-#     missing_in = [s for s in base_universe if s not in in_cols]
-#     missing_out = [s for s in base_universe if s not in out_cols]
-#     print(f"Missing in in-sample: {missing_in}")
-#     print(f"Missing in out-of-sample: {missing_out}")
-#     print(f"Using {len(common_symbols)} common symbols for pair selection.")
+            price_matrix = create_clean_price_matrix(df[df['symbol'].isin(valid_symbols)])
+            if price_matrix.empty:
+                print(f"Skipping {year} - empty price matrix")
+                continue
 
-#     # 3. Find cointegrated pairs on in-sample
-#     print("Finding cointegrated pairs (in-sample)...")
-#     pairs = find_cointegrated_pairs(price_matrix_in, common_symbols, n_jobs=1)
-#     pairs = [p for p in pairs if p is not None]
+            pairs = find_robust_pairs(price_matrix)
+            print(f"Found {len(pairs)} valid pairs for {year}")
 
-#     if not pairs:
-#         raise ValueError("No cointegrated pairs found!")
+            if not pairs:
+                continue
 
-#     # Sort pairs by p-value (strongest cointegration first)
-#     pairs = sorted(pairs, key=lambda x: x[2]['p_value'])
-#     top_pairs = pairs[:5]
+            year_results = []
+            for a, b, stats in pairs[:5]:
+                try:
+                    print(f"Backtesting {a}-{b}...")
+                    results = backtest_pair(
+                        price_matrix[a],
+                        price_matrix[b],
+                        stats['beta'],
+                        entry_z=1.5,
+                        exit_z=0.5
+                    )
+                    if isinstance(results, dict) and "details" in results:
+                        df_pair = results["details"]
+                        df_pair['year'] = year
+                        df_pair['pair'] = f"{a}-{b}"
+                        year_results.append(df_pair)
+                        save_pair_results(results, year, a, b)
+                    elif isinstance(results, pd.DataFrame):
+                        results['year'] = year
+                        results['pair'] = f"{a}-{b}"
+                        year_results.append(results)
+                        save_pair_results({"details": results}, year, a, b)
+                    else:
+                        print(f"Warning: Unexpected results type for {a}-{b}")
+                        continue
+                except Exception as e:
+                    print(f"Error backtesting {a}-{b}: {str(e)}")
+                    continue
 
-#     # 3. Backtest each pair and aggregate portfolio PnL
-#     portfolio_in = []
-#     portfolio_out = []
-#     pair_names = []
+            if year_results:
+                # Aggregate yearly results (cumulative_pnl starts from 0)
+                yearly_pnl = aggregate_yearly_results(year_results, year)
+                yearly_pnl.to_csv(f"results/{year}_yearly_pnl.csv", index=False)
+                all_results.append(yearly_pnl)
+                # plot_yearly_results(yearly_pnl, year)  # <-- REMOVE or COMMENT OUT
 
-#     for i, (a, b, stats) in enumerate(top_pairs):
-#         print(f"Backtesting pair {i+1}: {a} vs {b}")
-
-#         # In-sample
-#         spread_in = price_matrix_in[a] - stats['beta'] * price_matrix_in[b]
-#         results_in = backtest_pair(spread_in, entry_z=1.5, exit_z=0.5)
-#         portfolio_in.append(results_in['pnl'].reindex(price_matrix_in.index, fill_value=0))
-#         pair_names.append(f"{a}-{b}")
-
-#         # Out-of-sample
-#         spread_out = price_matrix_out[a] - stats['beta'] * price_matrix_out[b]
-#         results_out = backtest_pair(spread_out, entry_z=1.5, exit_z=0.5)
-#         portfolio_out.append(results_out['pnl'].reindex(price_matrix_out.index, fill_value=0))
-
-#         # Optionally save individual results
-#         pd.DataFrame({
-#             'Spread': spread_in,
-#             'ZScore': (spread_in - spread_in.mean()) / spread_in.std(),
-#             'Position': results_in['positions'],
-#             'PnL': results_in['pnl']
-#         }).to_csv(f"results/backtest_data_in_sample_{a}_{b}.csv")
-#         pd.DataFrame({
-#             'Spread': spread_out,
-#             'ZScore': (spread_out - spread_out.mean()) / spread_out.std(),
-#             'Position': results_out['positions'],
-#             'PnL': results_out['pnl']
-#         }).to_csv(f"results/backtest_data_out_sample_{a}_{b}.csv")
-
-#     # 4. Portfolio aggregation
-#     portfolio_in_df = pd.DataFrame(portfolio_in).T.fillna(0)
-#     portfolio_out_df = pd.DataFrame(portfolio_out).T.fillna(0)
-#     portfolio_in_df.columns = pair_names
-#     portfolio_out_df.columns = pair_names
-
-#     portfolio_in_df['Portfolio_PnL'] = portfolio_in_df.sum(axis=1)
-#     portfolio_out_df['Portfolio_PnL'] = portfolio_out_df.sum(axis=1)
-
-#     # Save and plot
-#     portfolio_in_df.to_csv("results/portfolio_in_sample.csv")
-#     portfolio_out_df.to_csv("results/portfolio_out_sample.csv")
-
-#     plt.figure(figsize=(12, 5))
-#     plt.plot(portfolio_in_df.index, portfolio_in_df['Portfolio_PnL'].cumsum(), label='In-sample')
-#     plt.plot(portfolio_out_df.index, portfolio_out_df['Portfolio_PnL'].cumsum(), label='Out-of-sample')
-#     plt.title("Portfolio Cumulative PnL (Top 5 Pairs)")
-#     plt.xlabel("Date")
-#     plt.ylabel("Cumulative PnL")
-#     plt.legend()
-#     plt.tight_layout()
-#     plt.savefig("results/portfolio_cumulative_pnl.png")
-#     plt.show()
-
-#     print("Portfolio analysis complete! Results saved in results/ folder")
-
-# if __name__ == "__main__":
-#     run_analysis()
-def get_nifty_list_for_year(year):
-    # Map year to your NIFTY50 list variable
-    return {
-        2015: nifty50_2015,
-        2016: nifty50_2016,
-        2017: nifty50_2017,
-        2018: nifty50_2018,
-        2019: nifty50_2019,
-        2020: nifty50_2020,
-        2021: nifty50_2021,
-        2022: nifty50_2022,
-        2023: nifty50_2023,
-        2024: nifty50_2024,
-    }[year]
-def filter_nifty_list(nifty_list, price_matrix):
-    """Return only those symbols from nifty_list that are present in price_matrix columns."""
-    return [s for s in nifty_list if s in price_matrix.columns]
-
-def run_yearly_portfolio_backtest():
-    os.makedirs("results", exist_ok=True)
-    all_years = range(2015, 2025)
-    all_portfolio_pnl = []
-
-    for year in all_years:
-        print(f"\n=== Processing Year {year} ===")
-        # 1. Load data for this year
-        df = load_price_data("data/raw", range(year, year+1))
-        price_matrix = create_price_matrix(df)
-        nifty_list = get_nifty_list_for_year(year)
-        filtered_nifty = filter_nifty_list(nifty_list, price_matrix)
-
-        missing = [s for s in nifty_list if s not in price_matrix.columns]
-        if missing:
-            print(f"Missing symbols for {year}: {missing}")
-        print(f"Using {len(filtered_nifty)} symbols for {year}")
-
-        # 2. Find top 5 cointegrated pairs
-        pairs = find_cointegrated_pairs(price_matrix, filtered_nifty, n_jobs=1)
-        pairs = [p for p in pairs if p is not None]
-        if not pairs:
-            print(f"No cointegrated pairs found for {year}, skipping.")
+        except Exception as e:
+            print(f"Error processing {year}: {str(e)}")
             continue
-        pairs = sorted(pairs, key=lambda x: x[2]['p_value'])
-        top_pairs = pairs[:5]
-        print(f"Top {len(top_pairs)} pairs for {year}: {[f'{a}-{b}' for a,b,_ in top_pairs]}")
 
-        # 3. Backtest each pair, store individual and portfolio PnL
-        pair_pnls = []
-        pair_names = []
-        for a, b, stats in top_pairs:
-            spread = price_matrix[a] - stats['beta'] * price_matrix[b]
-            results = backtest_pair(
-    spread=spread,
-    price_a=price_matrix[a],
-    price_b=price_matrix[b],
-    beta=stats['beta'],
-    entry_z=1.,
-    exit_z=0.,
-    cost=0.001,
-    book_size=1_000_000
-)
-            pair_pnls.append(results['pnl'].reindex(price_matrix.index, fill_value=0))
-            pair_names.append(f"{a}-{b}")
-            # Save individual pair results
-            pd.DataFrame({
-                'Spread': spread,
-                'ZScore': (spread - spread.mean()) / spread.std(),
-                'Position': results['positions'],
-                'PnL': results['pnl']
-            }).to_csv(f"results/backtest_{year}_{a}_{b}.csv")
-
-        # 4. Portfolio aggregation for the year
-        portfolio_df = pd.DataFrame(pair_pnls).T.fillna(0)
-        portfolio_df.columns = pair_names
-        portfolio_df['Portfolio_PnL'] = portfolio_df.sum(axis=1)
-        portfolio_df.to_csv(f"results/portfolio_{year}.csv")
-
-        # Store for final graph
-        all_portfolio_pnl.append(portfolio_df['Portfolio_PnL'])
-
-    # 5. Combine all years for final graph
-    all_portfolio_pnl_concat = pd.concat(all_portfolio_pnl)
-    all_portfolio_pnl_concat = all_portfolio_pnl_concat.sort_index()
-    all_portfolio_cum_pnl = all_portfolio_pnl_concat.cumsum()
-
-    plt.figure(figsize=(14, 6))
-    plt.plot(all_portfolio_cum_pnl.index, all_portfolio_cum_pnl.values, label="Cumulative Portfolio PnL")
-    plt.title("Cumulative Portfolio PnL (2015-2024, 5 pairs/year)")
-    plt.xlabel("Date")
-    plt.ylabel("Cumulative PnL")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig("results/final_portfolio_cumulative_pnl.png")
-    plt.show()
-
-    print("All yearly portfolio results saved and final graph generated.")
+    if all_results:
+        # Build continuous cumulative_pnl for final portfolio
+        final_results = []
+        carry_forward = 0
+        for yearly_pnl in all_results:
+            yearly_pnl = yearly_pnl.copy()
+            yearly_pnl['cumulative_pnl'] = yearly_pnl['cumulative_pnl'] + carry_forward
+            carry_forward = yearly_pnl['cumulative_pnl'].iloc[-1]
+            final_results.append(yearly_pnl)
+        final_results = pd.concat(final_results, ignore_index=True)
+        final_results.to_csv("results/final_portfolio_pnl.csv", index=False)
+        # plot_final_results(final_results)  # <-- REMOVE or COMMENT OUT
+        print("\n=== Final Performance ===")
+        print(f"Total Portfolio Value: {final_results['cumulative_pnl'].iloc[-1]:,.2f}")
+    else:
+        print("No valid results generated")
 
 if __name__ == "__main__":
-    run_yearly_portfolio_backtest()
+    main()

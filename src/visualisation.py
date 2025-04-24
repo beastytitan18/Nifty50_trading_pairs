@@ -49,3 +49,35 @@ def plot_backtest_results(
         plt.savefig(save_path)
     
     return fig
+
+import plotly.graph_objs as go
+
+def plot_yearly_results(yearly_pnl, year):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=yearly_pnl['date'],
+        y=yearly_pnl['cumulative_pnl'],
+        mode='lines',
+        name=f"{year} Cumulative PnL"
+    ))
+    fig.update_layout(
+        title=f"Year {year} - Cumulative PnL (Top 5 Pairs)",
+        xaxis_title="Date",
+        yaxis_title="Cumulative PnL"
+    )
+    fig.show()
+
+def plot_final_results(final_results):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=final_results['date'],
+        y=final_results['cumulative_pnl'],
+        mode='lines',
+        name="Continuous Cumulative PnL"
+    ))
+    fig.update_layout(
+        title="Continuous Cumulative PnL (2015-2024)",
+        xaxis_title="Date",
+        yaxis_title="Cumulative PnL"
+    )
+    fig.show()

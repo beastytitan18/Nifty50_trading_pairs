@@ -1,60 +1,72 @@
+import os
+import pandas as pd
+
+PAIR_FIELDS = [
+    "date", "price_a", "price_b", "spread", "zscore", "position",
+    "quantity_a", "quantity_b", "daily_pnl", "cumulative_pnl"
+]
+
+def save_pair_results(results, year, a, b):
+    """Save detailed pairwise backtest results to CSV."""
+    df = results.get("details")
+    if df is None:
+        return
+    # Ensure correct columns and order
+    df = df[PAIR_FIELDS]
+    outdir = f"results"
+    os.makedirs(outdir, exist_ok=True)
+    fname = f"{year}_{a}_{b}.csv"
+    df.to_csv(os.path.join(outdir, fname), index=False)
+
 import pandas as pd
 import os
 
-def save_pair_results(results: dict, year: int, symbol_a: str, symbol_b: str):
-    """Save individual pair results to CSV"""
+def aggregate_yearly_results(year_results, year):
+    """
+    year_results: list of DataFrames, each with 'date' and 'daily_pnl'
+    Returns: DataFrame with 'date', 'yearly_pnl', 'cumulative_pnl'
+    """
+    # Ensure all results are DataFrames
+    dfs = []
+    for res in year_results:
+        # If res is a dict, get the DataFrame
+        if isinstance(res, dict) and 'date' in res:
+            df = pd.DataFrame(res)
+        elif isinstance(res, pd.DataFrame):
+            df = res
+        else:
+            raise ValueError("Each result must be a DataFrame or dict with 'date'")
+        dfs.append(df[['date', 'daily_pnl']].rename(columns={'daily_pnl': f"pnl_{len(dfs)+1}"}))
+
+    # Merge on date
+    merged = dfs[0]
+    for df in dfs[1:]:
+        merged = pd.merge(merged, df, on='date', how='outer')
+    merged = merged.sort_values('date').fillna(0)
+    merged['yearly_pnl'] = merged.iloc[:, 1:].sum(axis=1)
+    merged['cumulative_pnl'] = merged['yearly_pnl'].cumsum()
+    merged['year'] = year
+
+    # Save to CSV
     os.makedirs("results", exist_ok=True)
-    df = pd.DataFrame({
-        'date': results['dates'],
-        'price_a': results['price_a'],
-        'price_b': results['price_b'],
-        'spread': results['spread'],
-        'zscore': results['zscore'],
-        'position': results['positions'],
-        'quantity_a': results['a_quantity'],
-        'quantity_b': results['b_quantity'],
-        'daily_pnl': results['daily_pnl'],
-        'cumulative_pnl': results['pnl']
-    })
-    df.to_csv(f"results/{year}_{symbol_a}_{symbol_b}.csv", index=False)
+    merged.to_csv(f"results/{year}_yearly_pnl.csv", index=False)
+    return merged
 
-def aggregate_yearly_results(year_results: list) -> pd.DataFrame:
-    """Combine all pairs' results for a year"""
-    all_pnl = pd.DataFrame()
-    for result in year_results:
-        pair_pnl = pd.Series(
-            result['daily_pnl'],
-            index=result['dates'],
-            name=result['pair']
-        )
-        all_pnl = pd.concat([all_pnl, pair_pnl], axis=1)
-    
-    all_pnl['Yearly_PnL'] = all_pnl.sum(axis=1)
-    all_pnl['Cumulative_PnL'] = all_pnl['Yearly_PnL'].cumsum()
-    return all_pnl
-
-def plot_yearly_results(results: pd.DataFrame, year: int):
-    """Generate yearly performance plot"""
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(12, 6))
-    for col in results.columns[:-2]:
-        plt.plot(results.index, results[col].cumsum(), alpha=0.4)
-    plt.plot(results.index, results['Cumulative_PnL'], 'k-', linewidth=2)
-    plt.title(f"{year} Pairs Trading Performance")
-    plt.xlabel("Date")
-    plt.ylabel("Cumulative P&L ($)")
-    plt.grid(True)
-    plt.savefig(f"results/{year}_performance.png")
-    plt.close()
-
-def plot_final_results(results: pd.DataFrame):
-    """Generate final combined performance plot"""
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(14, 7))
-    plt.plot(results.index, results['Cumulative_PnL'], 'b-', linewidth=2)
-    plt.title("10-Year Pairs Trading Performance (2015-2024)")
-    plt.xlabel("Date")
-    plt.ylabel("Cumulative P&L ($)")
-    plt.grid(True)
-    plt.savefig("results/final_performance.png")
-    plt.show()
+def aggregate_final_portfolio(years):
+    """Concatenate yearly pnl for continuous cumulative pnl and save final csv."""
+    all_years = []
+    last_cum = 0
+    for year in years:
+        f = f"results/{year}_yearly_pnl.csv"
+        if not os.path.exists(f):
+            continue
+        df = pd.read_csv(f)
+        df["cumulative_pnl"] = df["yearly_pnl"].cumsum() + last_cum
+        last_cum = df["cumulative_pnl"].iloc[-1]
+        df["year"] = year
+        all_years.append(df)
+    if all_years:
+        final = pd.concat(all_years, ignore_index=True)
+        final.to_csv("results/final_portfolio_pnl.csv", index=False)
+        return final
+    return None

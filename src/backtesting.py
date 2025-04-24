@@ -57,15 +57,16 @@ def backtest_pair(
         if positions[i] != positions[i-1]:
             pnl[i] -= cost_rate * book_size * abs(positions[i] - positions[i-1])
     
-    return {
-        'dates': price_a.index,
-        'price_a': price_a,
-        'price_b': price_b,
-        'positions': pd.Series(positions, index=price_a.index),
-        'a_quantity': pd.Series(a_quantity, index=price_a.index),
-        'b_quantity': pd.Series(b_quantity, index=price_a.index),
-        'pnl': pd.Series(np.cumsum(pnl), index=price_a.index),
-        'daily_pnl': pd.Series(pnl, index=price_a.index),
-        'zscore': pd.Series(zscore, index=price_a.index),
-        'spread': pd.Series(spread, index=price_a.index)
-    }
+    df = pd.DataFrame({
+        'date': price_a.index,
+        'price_a': price_a.values,
+        'price_b': price_b.values,
+        'spread': spread.values,
+        'zscore': zscore.values,
+        'position': positions,
+        'quantity_a': a_quantity,
+        'quantity_b': b_quantity,
+        'daily_pnl': pnl,
+        'cumulative_pnl': np.cumsum(pnl)
+    })
+    return {"details": df}
