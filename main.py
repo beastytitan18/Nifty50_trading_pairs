@@ -4,7 +4,6 @@ from src.data_loader import load_and_validate_data, create_clean_price_matrix
 from src.pair_selection import find_pairs
 from src.backtesting import backtest_pair
 from src.utils import save_pair_results, aggregate_yearly_results
-from src.visualisation import plot_yearly_results, plot_final_results
 
 
 nifty50_2015 = [
@@ -87,7 +86,16 @@ nifty50_2024 = [
     "SHREECEM", "SUNPHARMA", "TATACONSUM", "TATAMOTORS", "TATASTEEL", "TCS", "TECHM", "TITAN", "ULTRACEMCO",
     "UPL", "WIPRO"
 ]
-
+def buy_and_hold_pnl(price_series: pd.Series, capital: float) -> float:
+    """
+    Calculate buy-and-hold PnL for a stock.
+    Buys at first available price, sells at last available price.
+    """
+    buy_price = price_series.iloc[0]
+    sell_price = price_series.iloc[-1]
+    quantity = capital / buy_price
+    pnl = (sell_price - buy_price) * quantity
+    return pnl
 
 def main():
     years = list(range(2015, 2025))
@@ -128,15 +136,24 @@ def main():
                         entry_z=1.5,
                         exit_z=0.5
                     )
+                    bh_pnl_a = buy_and_hold_pnl(price_matrix[a], 500_000)
+                    bh_pnl_b = buy_and_hold_pnl(price_matrix[b], 500_000)
+                    print(f"Buy & Hold {a}: {bh_pnl_a:,.2f}, {b}: {bh_pnl_b:,.2f}")
+
+                    # --- Ensure these columns are added to the DataFrame before saving ---
                     if isinstance(results, dict) and "details" in results:
                         df_pair = results["details"]
                         df_pair['year'] = year
                         df_pair['pair'] = f"{a}-{b}"
+                        df_pair['bh_pnl_a'] = bh_pnl_a
+                        df_pair['bh_pnl_b'] = bh_pnl_b
                         year_results.append(df_pair)
-                        save_pair_results(results, year, a, b)
+                        save_pair_results({"details": df_pair}, year, a, b)
                     elif isinstance(results, pd.DataFrame):
                         results['year'] = year
                         results['pair'] = f"{a}-{b}"
+                        results['bh_pnl_a'] = bh_pnl_a
+                        results['bh_pnl_b'] = bh_pnl_b
                         year_results.append(results)
                         save_pair_results({"details": results}, year, a, b)
                     else:
