@@ -3,7 +3,7 @@ import numpy as np
 from typing import List, Tuple, Dict
 from statsmodels.tsa.stattools import coint
 
-def find_robust_pairs(price_matrix: pd.DataFrame, 
+def find_pairs(price_matrix: pd.DataFrame, 
                      min_correlation: float = 0.7,
                      min_coint_pvalue: float = 0.05) -> List[Tuple]:
     """Safe pair finding with proper correlation handling"""
