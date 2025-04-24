@@ -94,6 +94,17 @@ def main():
         pair = st.sidebar.selectbox("Select Pair", pair_files)
         df = load_pair_df(pair)
         fig = plot_line_chart(df, 'cumulative_pnl', f"Cumulative PnL: {pair}", pair, '#636EFA', width=2)
+        if 'bh_pnl_a' in df.columns and 'bh_pnl_b' in df.columns:
+        # Show as horizontal lines for final PnL
+            bh_pnl_a = df['bh_pnl_a'].iloc[0] if not df['bh_pnl_a'].isnull().all() else None
+            bh_pnl_b = df['bh_pnl_b'].iloc[0] if not df['bh_pnl_b'].isnull().all() else None
+            if bh_pnl_a is not None:
+                fig.add_hline(y=bh_pnl_a, line_dash="dot", line_color="#EF553B", 
+                            annotation_text="Buy & Hold A", annotation_position="top left")
+            if bh_pnl_b is not None:
+                fig.add_hline(y=bh_pnl_b, line_dash="dot", line_color="#00CC96", 
+                            annotation_text="Buy & Hold B", annotation_position="bottom left")
+
         st.plotly_chart(fig, use_container_width=True)
 
     elif view == "Yearly Portfolio":
