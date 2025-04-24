@@ -22,7 +22,7 @@ This project demonstrates robust statistical testing, realistic backtesting, and
 - **Yearly Portfolio**: See all 5 pairs for a year, compare their performance interactively.
 - **Aggregated Portfolio**: Track the combined portfolio’s growth and risk.
 
-👉 [Try the live dashboard](https://nifty50tradingpairs.streamlit.app/)
+👉 [Check Results here!](https://nifty50tradingpairs.streamlit.app/)
 
 ---
 
