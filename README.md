@@ -2,7 +2,7 @@
 
 [![Streamlit App](https://img.shields.io/badge/Live%20App-Streamlit-0099C6?logo=streamlit)](https://nifty50tradingpairs.streamlit.app/)
 
-A research-grade backtesting and analytics suite for **cointegration-based pairs trading** on the Nifty 50 (2015–2024).  
+A Robust backtesting and analytics suite for **cointegration-based pairs trading** on the Nifty 50 (2015–2024).  
 This project demonstrates robust statistical testing, realistic backtesting, and clear portfolio analytics—built for transparency and practical insight.
 
 ---
