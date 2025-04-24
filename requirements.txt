@@ -7,3 +7,4 @@ matplotlib>=3.6.0
 python-dotenv>=0.21.0
 pyarrow>=10.0.0
 tqdm>=4.65.0
+streamlit
