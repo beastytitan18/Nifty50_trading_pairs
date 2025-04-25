@@ -51,3 +51,14 @@ def create_clean_price_matrix(df: pd.DataFrame) -> pd.DataFrame:
     price_matrix = price_matrix.ffill(limit=5).dropna(axis=1)
     
     return price_matrix
+def load_year_data(symbol, year, window=20):
+    # Load full data for the symbol
+    df = pd.read_csv(f"data/{symbol}.csv", parse_dates=["date"])
+    df = df.sort_values("date")
+    # Get current year data
+    df_year = df[df['date'].dt.year == year].copy()
+    # Get previous year data for warm-up
+    df_prev = df[df['date'].dt.year == (year - 1)].copy()
+    if not df_prev.empty:
+        df_prev = df_prev.iloc[-window:]
+    return df_year, df_prev
