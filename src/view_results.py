@@ -284,7 +284,12 @@ def main():
         for df in pair_dfs:
             df['date'] = pd.to_datetime(df['date'])
         avg_df = pd.DataFrame({'date': pair_dfs[0]['date']})
-        avg_df['avg_cumulative_pnl'] = np.mean([df['cumulative_pnl'].values for df in pair_dfs], axis=0)
+        # Align all pair DataFrames by date (outer join), then take the mean row-wise
+        aligned = [df.set_index('date')['cumulative_pnl'] for df in pair_dfs]
+        avg_df = pd.concat(aligned, axis=1)
+        avg_df.columns = [f'pair_{i}' for i in range(len(aligned))]
+        avg_df['avg_cumulative_pnl'] = avg_df.mean(axis=1)
+        avg_df = avg_df.reset_index()
 
         # Add average line to the chart
         fig.add_trace(go.Scatter(
