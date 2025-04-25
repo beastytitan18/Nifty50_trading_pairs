@@ -100,12 +100,14 @@ def buy_and_hold_pnl(price_series: pd.Series, capital: float) -> float:
 def main():
     years = list(range(2015, 2025))
     all_results = []
+    window = 20  # rolling window size for z-score
 
     yearly_data = load_and_validate_data(years)
 
-    for year, df in yearly_data.items():
+    for idx, year in enumerate(years):
         print(f"\n=== Processing {year} ===")
         try:
+            df = yearly_data[year]
             nifty_symbols = globals()[f"nifty50_{year}"]
             valid_symbols = [s for s in nifty_symbols if s in df['symbol'].unique()]
             print(f"{year}: {len(valid_symbols)} valid symbols")
@@ -119,6 +121,15 @@ def main():
                 print(f"Skipping {year} - empty price matrix")
                 continue
 
+            # Prepare previous year price_matrix for warm-up
+            if idx > 0:
+                prev_year = years[idx - 1]
+                prev_df = yearly_data[prev_year]
+                prev_valid_symbols = [s for s in nifty_symbols if s in prev_df['symbol'].unique()]
+                prev_price_matrix = create_clean_price_matrix(prev_df[prev_df['symbol'].isin(prev_valid_symbols)])
+            else:
+                prev_price_matrix = None
+
             pairs = find_pairs(price_matrix)
             print(f"Found {len(pairs)} valid pairs for {year}")
 
@@ -128,37 +139,45 @@ def main():
             year_results = []
             for a, b, stats in pairs[:5]:
                 try:
+                    # Prepare price series with warm-up
+                    if prev_price_matrix is not None and a in prev_price_matrix and b in prev_price_matrix:
+                        price_a_full = pd.concat([prev_price_matrix[a].iloc[-window:], price_matrix[a]])
+                        price_b_full = pd.concat([prev_price_matrix[b].iloc[-window:], price_matrix[b]])
+                    else:
+                        price_a_full = price_matrix[a]
+                        price_b_full = price_matrix[b]
+
+                    # Align indexes
+                    price_a_full, price_b_full = price_a_full.align(price_b_full, join='inner')
+
                     print(f"Backtesting {a}-{b}...")
                     results = backtest_pair(
-                        price_matrix[a],
-                        price_matrix[b],
+                        price_a_full,
+                        price_b_full,
                         stats['beta'],
                         entry_z=1.5,
-                        exit_z=0.5
+                        exit_z=0.15
                     )
+
+                    # Slice off the first `window` rows so only current year remains
+                    if isinstance(results, dict) and "details" in results:
+                        df_pair = results["details"].iloc[window:].copy()
+                    elif isinstance(results, pd.DataFrame):
+                        df_pair = results.iloc[window:].copy()
+                    else:
+                        print(f"Warning: Unexpected results type for {a}-{b}")
+                        continue
+
                     bh_pnl_a = buy_and_hold_pnl(price_matrix[a], 500_000)
                     bh_pnl_b = buy_and_hold_pnl(price_matrix[b], 500_000)
                     print(f"Buy & Hold {a}: {bh_pnl_a:,.2f}, {b}: {bh_pnl_b:,.2f}")
 
-                    # --- Ensure these columns are added to the DataFrame before saving ---
-                    if isinstance(results, dict) and "details" in results:
-                        df_pair = results["details"]
-                        df_pair['year'] = year
-                        df_pair['pair'] = f"{a}-{b}"
-                        df_pair['bh_pnl_a'] = bh_pnl_a
-                        df_pair['bh_pnl_b'] = bh_pnl_b
-                        year_results.append(df_pair)
-                        save_pair_results({"details": df_pair}, year, a, b)
-                    elif isinstance(results, pd.DataFrame):
-                        results['year'] = year
-                        results['pair'] = f"{a}-{b}"
-                        results['bh_pnl_a'] = bh_pnl_a
-                        results['bh_pnl_b'] = bh_pnl_b
-                        year_results.append(results)
-                        save_pair_results({"details": results}, year, a, b)
-                    else:
-                        print(f"Warning: Unexpected results type for {a}-{b}")
-                        continue
+                    df_pair['year'] = year
+                    df_pair['pair'] = f"{a}-{b}"
+                    df_pair['bh_pnl_a'] = bh_pnl_a
+                    df_pair['bh_pnl_b'] = bh_pnl_b
+                    year_results.append(df_pair)
+                    save_pair_results({"details": df_pair}, year, a, b)
                 except Exception as e:
                     print(f"Error backtesting {a}-{b}: {str(e)}")
                     continue
@@ -168,7 +187,6 @@ def main():
                 yearly_pnl = aggregate_yearly_results(year_results, year)
                 yearly_pnl.to_csv(f"results/{year}_yearly_pnl.csv", index=False)
                 all_results.append(yearly_pnl)
-                # plot_yearly_results(yearly_pnl, year)  # <-- REMOVE or COMMENT OUT
 
         except Exception as e:
             print(f"Error processing {year}: {str(e)}")
@@ -185,7 +203,6 @@ def main():
             final_results.append(yearly_pnl)
         final_results = pd.concat(final_results, ignore_index=True)
         final_results.to_csv("results/final_portfolio_pnl.csv", index=False)
-        # plot_final_results(final_results)  # <-- REMOVE or COMMENT OUT
         print("\n=== Final Performance ===")
         print(f"Total Portfolio Value: {final_results['cumulative_pnl'].iloc[-1]:,.2f}")
     else:
