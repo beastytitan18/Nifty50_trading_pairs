@@ -269,21 +269,16 @@ def main():
             fig.add_trace(go.Scatter(
                 x=pair_df['date'],
                 y=pair_df['cumulative_pnl'],
-                mode='lines',
+                mode='lines',  # Only lines, no markers
                 name=pair_name,
-                line=dict(width=3, color=color_palette[i % len(color_palette)]),
+                line=dict(width=2, color=color_palette[i % len(color_palette)]),
                 opacity=0.4,
                 hovertemplate=f"<b>{pair_name}</b><br>Date: %{{x}}<br>Cum. PnL: %{{y:.2f}}<extra></extra>"
             ))
             pair_dfs.append(pair_df)
-            # Count trades for this pair
             if 'position' in pair_df:
                 total_trades += count_num_trades(pair_df['position'])
 
-        # Compute average cumulative PnL across all 5 pairs
-        for df in pair_dfs:
-            df['date'] = pd.to_datetime(df['date'])
-        avg_df = pd.DataFrame({'date': pair_dfs[0]['date']})
         # Align all pair DataFrames by date (outer join), then take the mean row-wise
         aligned = [df.set_index('date')['cumulative_pnl'] for df in pair_dfs]
         avg_df = pd.concat(aligned, axis=1)
@@ -291,14 +286,14 @@ def main():
         avg_df['avg_cumulative_pnl'] = avg_df.mean(axis=1)
         avg_df = avg_df.reset_index()
 
-        # Add average line to the chart
+        # Add average line to the chart (thicker, dashed, more visible)
         fig.add_trace(go.Scatter(
             x=avg_df['date'],
             y=avg_df['avg_cumulative_pnl'],
             mode='lines',
             name="Average Total Return (5 Pairs)",
-            line=dict(width=3, color='#FFD800', dash='dash'),
-            opacity=0.9,
+            line=dict(width=4, color='#FFD800', dash='dash'),
+            opacity=1.0,
             hovertemplate="<b>Average Total Return</b><br>Date: %{x}<br>Avg Cum. PnL: %{y:.2f}<extra></extra>"
         ))
 
@@ -315,8 +310,8 @@ def main():
             font=dict(family="Arial", size=16, color="#F8F8F8"),
             legend=dict(
                 orientation="h",
-                yanchor="bottom",
-                y=1.02,
+                yanchor="top",
+                y=-0.2,  # Move legend below the x-axis
                 xanchor="center",
                 x=0.5,
                 font=dict(size=14)
