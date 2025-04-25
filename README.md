@@ -38,11 +38,89 @@ streamlit run prod/src/view_results.py
 ---
 
 ## 📚 Methodology
+### 1. Pair Selection & Cointegration Testing
 
-- **Statistical Test**: Engle-Granger cointegration test for pair selection.
-- **Signal**: Z-score of spread; enter/exit on thresholds.
-- **Execution**: Fixed notional per pair, transaction costs, no lookahead.
-- **Metrics**: Total/annualized return, Sharpe, period.
+- **Universe:**  
+  Each year, the Nifty50 universe is reconstituted to avoid survivorship bias.
+
+- **Correlation Filter:**  
+  All possible stock pairs are filtered for high absolute correlation (default ≥ 0.7) on daily closing prices.
+
+- **Cointegration Test:**  
+  For each highly correlated pair, the Engle-Granger two-step method is used:
+    - **Step 1:** Estimate hedge ratio (β) via OLS regression:  
+      $\text{Stock}_A = \alpha + \beta \cdot \text{Stock}_B + \epsilon$
+    - **Step 2:** Test the residuals (spread) for stationarity using the Augmented Dickey-Fuller (ADF) test:  
+      $\Delta y_t = \alpha + \beta t + \gamma y_{t-1} + \sum_{i=1}^p \delta_i \Delta y_{t-i} + \epsilon_t$
+
+- **Selection:**  
+  Pairs with ADF p-value < 0.05 are considered cointegrated and eligible for trading.
+
+---
+
+### 2. Spread & Z-Score Calculation
+
+- **Spread:**  
+  For each pair, the spread is computed as:  
+  $Spread_t = Stock_A - \beta \cdot Stock_B$
+
+- **Z-Score Normalization:**  
+  The spread is normalized to a z-score using a rolling mean and std (default window=30), calculated with **no lookahead bias**:
+  - The rolling window is "warmed up" using the last N days of the previous year, so signals are robust from the first day of each year.
+  - Only past data is used for each day's z-score.
+
+  $Z_t = \frac{Spread_t - \mu_{spread}}{\sigma_{spread}}$
+
+---
+
+### 3. Trading Strategy
+
+- **Entry Signals:**
+    - **Long Spread:** Enter when $Z_t < -1.5$
+    - **Short Spread:** Enter when $Z_t > +1.5$
+
+- **Exit Signals:**
+    - **Close Position:** Exit when $|Z_t| < 0.5$ (spread crosses the mean)
+
+- **Position Sizing:**  
+  Fixed notional capital per pair (e.g., ₹1,000,000), with quantities dynamically calculated based on prices and hedge ratio.
+
+- **Transaction Costs:**  
+  Realistic transaction costs are applied to each trade.
+
+- **Risk Controls:**  
+  Stop-loss logic is applied per pair (e.g., close all positions if cumulative PnL drops below a set threshold).
+
+---
+
+### 4. Benchmarking
+
+- For each stock in a traded pair, a buy-and-hold PnL is computed by investing ₹500,000 in each leg at the start of the year and liquidating at year-end.  
+  This provides a direct performance benchmark against the pairs trading strategy.
+
+---
+
+### 5. Portfolio Construction & Aggregation
+
+- **Top Pairs:**  
+  Each year, the top 5 cointegrated pairs (lowest p-value) are selected and traded independently.
+
+- **Yearly Aggregation:**  
+  Daily PnL from all pairs is summed to form the yearly portfolio PnL.
+
+- **Final Portfolio:**  
+  Yearly portfolios are chained together to form a continuous, multi-year cumulative PnL.
+
+---
+
+### 6. Performance Analytics & Visualization
+
+- **Metrics:**  
+  Total return, annualized return, Sharpe ratio, Calmar ratio, max drawdown, number of trades, and period are computed for each pair, yearly portfolio, and the aggregated portfolio.
+
+- **Visualization:**  
+  Interactive dashboards (Streamlit + Plotly) allow exploration of pairwise, yearly, and aggregated results, including buy-and-hold benchmarks.
+  - **Metric Definitions:** All metrics are explained in the dashboard for transparency.
 
 ---
 
